@@ -1,4 +1,4 @@
-name: Node.js CI
+name: Node.js Full CI/CD
 
 on:
   push:
@@ -7,25 +7,27 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
+  test-build:
     runs-on: ubuntu-latest
+
     services:
       postgres:
-        image: postgres:15
+        image: postgres:16-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: testdb
+          POSTGRES_DB: crm
         ports:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres"
-          --health-interval 5s
+          --health-interval 10s
           --health-timeout 5s
           --health-retries 5
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -37,12 +39,72 @@ jobs:
 
       - name: Wait for Postgres
         run: |
-          until pg_isready -h localhost -p 5432 -U postgres; do
+          until pg_isready -h postgres -p 5432 -U postgres; do
             echo "Waiting for Postgres..."
             sleep 2
           done
 
+      - name: Create tables
+        run: |
+          psql postgres://postgres:postgres@postgres:5432/crm -c "
+          CREATE TABLE IF NOT EXISTS users (
+            id serial PRIMARY KEY,
+            name varchar(100) NOT NULL,
+            email varchar(150) UNIQUE NOT NULL,
+            created_at timestamp DEFAULT CURRENT_TIMESTAMP
+          );"
+
+      - name: Seed database
+        run: node scripts/seedUsers.js
+        env:
+          NODE_ENV: test
+          DATABASE_URL: postgres://postgres:postgres@postgres:5432/crm
+
       - name: Run tests
         run: npm test
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/testdb
+          NODE_ENV: test
+          DATABASE_URL: postgres://postgres:postgres@postgres:5432/crm
+
+  build-and-push:
+    needs: test-build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: devgoku69/node-crm-api:latest
+
+#   deploy-prod:
+#     needs: build-and-push
+#     runs-on: ubuntu-latest
+#     steps:
+#       - name: Checkout repository
+#         uses: actions/checkout@v3
+
+#       - name: Setup SSH
+#         uses: webfactory/ssh-agent@v0.7.0
+#         with:
+#           ssh-private-key: ${{ secrets.SSH_KEY }}
+
+#       - name: Deploy Docker container on server
+#         run: |
+#           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+#             docker pull devgoku69/node-crm-api:latest &&
+#             docker stop node-crm-api || true &&
+#             docker rm node-crm-api || true &&
+#             docker run -d --name node-crm-api -p 3000:3000 \
+#               --env-file /home/${{ secrets.SSH_USER }}/node-crm-api/.env.prod \
+#               devgoku69/node-crm-api:latest
+#           "
