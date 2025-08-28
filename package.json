@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
+    "migrate": "node-pg-migrate up",
     "test": "cross-env NODE_ENV=test jest --runInBand",
     "seed:test": "cross-env NODE_ENV=test node scripts/seedUsers.js"
   },
