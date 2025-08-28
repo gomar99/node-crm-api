@@ -49,13 +49,15 @@ jobs:
 
       - name: Setup database tables
         run: |
-          psql $DATABASE_URL -c "
-          CREATE TABLE IF NOT EXISTS users (
-              id SERIAL PRIMARY KEY,
-              name VARCHAR(100),
-              email VARCHAR(100)
-          );"
-
+            psql $DATABASE_URL -c "
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                name VARCHAR(100),
+                email VARCHAR(100),
+                created_at TIMESTAMP DEFAULT now(),
+                updated_at TIMESTAMP DEFAULT now()
+            );"
+        
       - name: Run tests
         run: npm test
         env:
