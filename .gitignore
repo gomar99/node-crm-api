@@ -1,5 +1,32 @@
-# Object file
-*.o
+# Node modules
+node_modules/
 
-# Ada Library Information
-*.ali
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Environment files
+.env*
+!.env.example
+
+# Build output
+dist/
+build/
+
+# Docker
+docker-compose.override.yml
+*.docker
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE / editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Jest coverage
+coverage/
