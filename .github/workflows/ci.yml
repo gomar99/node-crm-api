@@ -1,4 +1,4 @@
-name: Node.js CI/CD (No Deploy)
+name: Node.js CI/CD (Fixed Postgres Wait)
 
 on:
   push:
@@ -21,9 +21,9 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
+          --health-interval 5s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
 
     steps:
       - name: Checkout repository
@@ -37,10 +37,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Wait for Postgres
+      - name: Wait for Postgres to be ready
         run: |
-          until pg_isready -h postgres -p 5432 -U postgres; do
-            echo "Waiting for Postgres..."
+          echo "Waiting for Postgres to be ready..."
+          for i in {1..30}; do
+            pg_isready -h postgres -p 5432 -U postgres && echo "Postgres is ready" && break
+            echo "Waiting..."
             sleep 2
           done
 
