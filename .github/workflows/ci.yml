@@ -1,4 +1,4 @@
-name: Node.js Docker CI/CD with Test
+name: Node.js Docker CI/CD
 
 on:
   push:
@@ -7,12 +7,12 @@ on:
     branches: [ main ]
 
 jobs:
-  build-test-deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:15
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -26,8 +26,8 @@ jobs:
           --health-retries 5
 
     env:
-      NODE_ENV: test
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/crm_test
+      NODE_ENV: test
 
     steps:
       - name: Checkout repository
@@ -41,28 +41,29 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Wait for Postgres
+      - name: Wait for Postgres to be ready
         run: |
           until pg_isready -h localhost -p 5432 -U postgres; do
             echo "Waiting for Postgres..."
             sleep 2
           done
 
-      - name: Setup database table
+      - name: Setup database tables
         run: |
           psql $DATABASE_URL -c "
           CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(100),
-            email VARCHAR(100),
-            created_at TIMESTAMP DEFAULT now(),
-            updated_at TIMESTAMP DEFAULT now()
+              id SERIAL PRIMARY KEY,
+              name VARCHAR(100),
+              email VARCHAR(100),
+              created_at TIMESTAMP DEFAULT now(),
+              updated_at TIMESTAMP DEFAULT now()
           );"
 
       - name: Run tests
         run: npm test
         env:
           DATABASE_URL: ${{ env.DATABASE_URL }}
+          NODE_ENV: test
 
       - name: Build Docker image
         run: docker build -t ${{ secrets.DOCKER_USERNAME }}/crm_api:latest .
